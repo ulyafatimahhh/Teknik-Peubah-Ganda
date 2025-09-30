@@ -1,0 +1,154 @@
+---
+title: "Tugas Praktikum TPG Uji Vektor Nilai Tengah"
+author: "Ulya"
+date: "2025-09-30"
+output: html_document
+---
+
+saya ingin menganalisis apakah terdapat perbedaan yang signifikan dalam prestasi akademik antara siswa laki-laki dan perempuan. Data yang dianalisis adalah nilai ujian akhir semester untuk dua mata pelajaran:
+
+1. **Matematika** (0-100)
+2. **Bahasa Indonesia** (0-100)
+
+Sample diambil dari 15 siswa laki-laki dan 15 siswa perempuan di kelas XI.'
+
+
+```{r}
+library(MASS)
+set.seed(1024)  # NIM G1401231024
+
+# Data siswa laki-laki
+n_laki <- 15
+mu_laki <- c(75, 80)  # Rata-rata: Matematika 75, Bahasa Indonesia 80
+sigma <- matrix(c(90, 30, 30, 80), 2)  # Matriks kovariansi
+data_laki <- mvrnorm(n_laki, mu = mu_laki, Sigma = sigma)
+
+
+# Data siswa perempuan  
+n_perempuan <- 15
+mu_perempuan <- c(82, 85)  # Rata-rata: Matematika 82, Bahasa Indonesia 85
+data_perempuan <- mvrnorm(n_perempuan, mu = mu_perempuan, Sigma = sigma)
+```
+
+```{r}
+# Gabungkan data
+data_siswa <- data.frame(
+  Jenis_Kelamin = rep(c("Laki-laki", "Perempuan"), each = 15),
+  Matematika = c(data_laki[,1], data_perempuan[,1]),
+  Bahasa_Indonesia = c(data_laki[,2], data_perempuan[,2])
+)
+```
+
+```{r}
+# Membatasi nilai antara 50-100 
+data_siswa$Matematika <- pmax(50, pmin(100, round(data_siswa$Matematika)))
+data_siswa$Bahasa_Indonesia <- pmax(50, pmin(100, round(data_siswa$Bahasa_Indonesia)))
+```
+
+```{r}
+# Tampilkan data
+print(data_siswa, 10)
+```
+
+```{r}
+library(ICSNP)
+
+# Pisahkan data
+data_laki2 <- data_siswa[data_siswa$Jenis_Kelamin == "Laki-laki", c("Matematika", "Bahasa_Indonesia")]
+data_perempuan2 <- data_siswa[data_siswa$Jenis_Kelamin == "Perempuan", c("Matematika", "Bahasa_Indonesia")]
+
+# Uji Hotelling T²
+hasil_uji <- HotellingsT2(data_laki2, data_perempuan2)
+print(hasil_uji)
+```
+```{r}
+p_value <- round(hasil_uji$p.value, 4)
+
+cat("HASIL UJI STATISTIK\n")
+cat("Nilai p-value:", p_value, "\n\n")
+
+if(p_value < 0.05) {
+  cat("KESIMPULAN: Tolak H₀\n")
+  cat("Terdapat perbedaan yang signifikan dalam prestasi akademik antara siswa laki-laki dan perempuan.\n")
+} else {
+  cat("KESIMPULAN: Gagal tolak H₀\n") 
+  cat("Tidak terdapat perbedaan yang signifikan dalam prestasi akademik antara siswa laki-laki dan perempuan.\n")
+}
+```
+
+```{r}
+cat("SEBAGAI PERBANDINGAN - Uji-t Terpisah:\n\n")
+
+# Uji-t untuk Matematika
+ttest_math <- t.test(Matematika ~ Jenis_Kelamin, data = data_siswa)
+cat("Matematika: p-value =", round(ttest_math$p.value, 4), "\n")
+
+# Uji-t untuk Bahasa Indonesia  
+ttest_bindo <- t.test(Bahasa_Indonesia ~ Jenis_Kelamin, data = data_siswa)
+cat("Bahasa Indonesia: p-value =", round(ttest_bindo$p.value, 4), "\n")
+```
+```{r}
+library(dplyr)
+# Hitung rata-rata
+rata_rata <- data_siswa %>%
+  group_by(Jenis_Kelamin) %>%
+  summarise(
+    Matematika = mean(Matematika),
+    Bahasa_Indonesia = mean(Bahasa_Indonesia)
+  )
+
+cat("### NILAI RATA-RATA:\n")
+print(rata_rata)
+
+# Plot profil
+profil_data <- data.frame(
+  Kelompok = rep(rata_rata$Jenis_Kelamin, 2),
+  Mata_Pelajaran = rep(c("Matematika", "Bahasa Indonesia"), each = 2),
+  Nilai = c(rata_rata$Matematika, rata_rata$Bahasa_Indonesia)
+)
+
+ggplot(profil_data, aes(x = Mata_Pelajaran, y = Nilai, color = Kelompok, group = Kelompok)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 3) +
+  labs(title = "Profil Nilai Rata-rata Siswa",
+       y = "Nilai Rata-rata") +
+  theme_minimal() +
+  scale_color_manual(values = c("lightblue", "pink"))
+```
+```{r}
+cat("DATA NILAI SISWA LENGKAP:\n")
+print(data_siswa)
+```
+
+```{r}
+cat("HASIL:\n\n")
+
+if(p_value < 0.05) {
+  selisih_math <- rata_rata$Matematika[2] - rata_rata$Matematika[1]  # Perempuan - Laki-laki
+  selisih_bindo <- rata_rata$Bahasa_Indonesia[2] - rata_rata$Bahasa_Indonesia[1]
+  
+  cat("Berdasarkan analisis, ditemukan perbedaan signifikan:\n\n")
+  
+  if(selisih_math > 0) {
+    cat("• Siswa perempuan memiliki nilai Matematika lebih tinggi:", round(selisih_math, 1), "poin\n")
+  } else {
+    cat("• Siswa laki-laki memiliki nilai Matematika lebih tinggi:", round(abs(selisih_math), 1), "poin\n")
+  }
+  
+  if(selisih_bindo > 0) {
+    cat("• Siswa perempuan memiliki nilai Bahasa Indonesia lebih tinggi:", round(selisih_bindo, 1), "poin\n")
+  } else {
+    cat("• Siswa laki-laki memiliki nilai Bahasa Indonesia lebih tinggi:", round(abs(selisih_bindo), 1), "poin\n")
+  }
+  
+  cat("\n Rekomendasi: Pertimbangkan pendekatan mengajar yang berbeda untuk mengoptimalkan potensi masing-masing kelompok.\n")
+  
+} else {
+  cat("Tidak ditemukan perbedaan signifikan dalam prestasi akademik antara siswa laki-laki dan perempuan.\n\n")
+  cat("KESIMPULAN: Dapat menggunakan metode pengajaran yang sama untuk semua siswa.\n")
+}
+
+```
+
+
+
